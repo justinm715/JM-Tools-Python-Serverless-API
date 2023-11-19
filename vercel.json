@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/region_tribs/(.*)", "destination": "/api/region_tribs" }
+  ]
+}
