@@ -13,5 +13,5 @@ def current_time():
 
 @app.route('/random')
 def random_number():
-    number = "random.randint(1, 100)"
+    number = random.randint(1, 100)
     return jsonify({"random_number": number})
