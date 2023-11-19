@@ -1,5 +1,5 @@
 import pytest
-from api.region_tribs import app as flask_app
+from api.index import app as flask_app
 from flask_testing import TestCase
 
 
