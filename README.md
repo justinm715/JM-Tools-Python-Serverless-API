@@ -1,5 +1,13 @@
-# Python Starter
+# Python API Thing
 
-Quickly get started with [Python](https://www.python.org/) using this starter! 
+## Install
 
-- If you want to upgrade Python, you can change the image in the [Dockerfile](./.devcontainer/Dockerfile).
+```
+pip install requirements_dev.txt
+```
+
+## Testing
+
+```
+pytest -s tests
+```
