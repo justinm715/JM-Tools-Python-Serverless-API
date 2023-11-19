@@ -8,7 +8,7 @@ from tools.foo import RandomNumberGenerator
 app = Flask(__name__)
 
 
-@app.route('/time')
+@app.route('/api/region_tribs/time')
 def current_time():
     now = datetime.now().isoformat()
     return jsonify({"time": now})
@@ -21,7 +21,7 @@ def random_number():
     return jsonify({"random_number": number})
 
 
-@app.route('/upload-pdf', methods=['POST'])
+@app.route('/api/region_tribs/upload-pdf', methods=['POST'])
 def upload_pdf():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400

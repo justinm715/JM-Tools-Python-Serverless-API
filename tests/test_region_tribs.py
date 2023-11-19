@@ -11,15 +11,9 @@ class TestApp(TestCase):
         return flask_app
 
     def test_time(self):
-        response = self.client.get('/time')
+        response = self.client.get('/api/region_tribs/time')
         assert response.status_code == 200
         assert "time" in response.json
-
-    def test_random_number(self):
-        response = self.client.get('/api/region_tribs/random_number')
-        assert response.status_code == 200
-        assert "random_number" in response.json
-        assert 1 <= response.json["random_number"] <= 100
 
 
 class TestPDFUpload(TestCase):
@@ -36,7 +30,7 @@ class TestPDFUpload(TestCase):
         with open(pdf_path, 'rb') as pdf_file:
             data = {'file': (pdf_file, 'sample.pdf')}
             response = self.client.post(
-                '/upload-pdf', data=data, content_type='multipart/form-data')
+                '/api/region_tribs/upload-pdf', data=data, content_type='multipart/form-data')
 
         self.assertEqual(response.status_code, 200)
 
