@@ -1,2 +1,4 @@
 Flask
 PyPDF2
+shapely
+pandas
