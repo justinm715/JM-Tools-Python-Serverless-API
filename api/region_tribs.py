@@ -80,7 +80,13 @@ def process_pdf():
                     report_generator = AreaAnalysisReport(
                         area_analysis, page_data)
                     report_df = report_generator.generate_report()
-                    all_pages_data.append(report_df.to_dict(orient='records'))
+
+                    # Add page number to each row of data
+                    page_data_with_page_num = [
+                        dict(item, Page=page_num + 1) for item in report_df.to_dict(orient='records')
+                    ]
+
+                    all_pages_data.append(page_data_with_page_num)
 
             # Clean up: remove the temporary file
             os.remove(temp_pdf_path)
