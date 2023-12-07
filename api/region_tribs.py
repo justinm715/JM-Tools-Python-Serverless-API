@@ -3,7 +3,7 @@ from pypdf import PdfReader
 from datetime import datetime
 import random
 from tools.foo import RandomNumberGenerator
-from tools.region_tribs_tools import AnnotationsExtractor, AreaAnalysisReport, AreaElementAnalyzer
+from tools.region_tribs_tools import AnnotationsExtractor, AreaElementAnalyzer
 from werkzeug.utils import secure_filename
 import os
 
@@ -77,16 +77,10 @@ def process_pdf():
                 if page_data:
                     analyzer = AreaElementAnalyzer(page_data)
                     area_analysis = analyzer.calculate_intersection_lengths()
-                    report_generator = AreaAnalysisReport(
-                        area_analysis, page_data)
-                    report_df = report_generator.generate_report()
-
-                    # Add page number to each row of data
-                    page_data_with_page_num = [
-                        dict(item, Page=page_num + 1) for item in report_df.to_dict(orient='records')
-                    ]
-
-                    all_pages_data.append(page_data_with_page_num)
+                    all_pages_data.append({
+                        'page': page_num + 1,
+                        'analysis': area_analysis
+                    })
 
             # Clean up: remove the temporary file
             os.remove(temp_pdf_path)

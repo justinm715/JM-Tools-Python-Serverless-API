@@ -1,8 +1,9 @@
-import pypdf 
+import pypdf
 import pprint
 import pandas as pd
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import LineString, Polygon, mapping
 from shapely.affinity import rotate
+from shapely import transform
 from collections import defaultdict
 
 
@@ -168,6 +169,24 @@ class AreaElementAnalyzer:
         self.roofs = []
         self.walls = []
         self.process_data()
+        self.area_analysis = {}
+
+    @staticmethod
+    def scale_linestring(_linestring, scale_factor):
+        """
+        Scale the Linestring coordinates of a Shapely real-world geometry object back to PDF document coordinates
+        It is assumed that the input linestring coordinatse are in feet, which should be converted to inches then divided by the scale factor
+        """
+        return transform(_linestring, lambda x: x*[12/scale_factor, 12/scale_factor])
+
+    @staticmethod
+    def to_xy_coords(geom):
+        coords = mapping(geom)['coordinates']
+        if isinstance(geom, LineString):
+            return coords
+        else:  # it's a Polygon
+            # last point of a polygon is a repeat of the first
+            return coords[0][:-1]
 
     def process_data(self):
         # Separate the annotations by their prefix
@@ -187,115 +206,68 @@ class AreaElementAnalyzer:
                     self.walls.append((label, LineString(coords)))
 
     def calculate_intersection_lengths(self):
-        # Dictionary to store the calculated lengths and areas
-        area_analysis = defaultdict(lambda: {'wall_lengths': defaultdict(
-            float), 'floor_areas': defaultdict(float), 'roof_areas': defaultdict(float)})
+        # Dictionary to store the calculated lengths, areas, and intersection shapes
+        area_analysis = defaultdict(lambda: {
+            'wall_lengths': defaultdict(float),
+            'floor_areas': defaultdict(float),
+            'roof_areas': defaultdict(float),
+            'wall_intersections': defaultdict(list),
+            'floor_intersections': defaultdict(list),
+            'roof_intersections': defaultdict(list)
+        })
+
+        scale_factor = self.data.get('page_metadata')['scale_factor']
 
         # Initialize all areas with all wall, floor, and roof types
-        for area_label, _ in self.areas:
+        for area_label, area_polygon in self.areas:
             for wall_label, _ in self.walls:
                 area_analysis[area_label]['wall_lengths'][wall_label] = 0.0
+                area_analysis[area_label]['wall_intersections'][wall_label] = []
             for floor_label, _ in self.floors:
                 area_analysis[area_label]['floor_areas'][floor_label] = 0.0
+                area_analysis[area_label]['floor_intersections'][floor_label] = []
             for roof_label, _ in self.roofs:
                 area_analysis[area_label]['roof_areas'][roof_label] = 0.0
+                area_analysis[area_label]['roof_intersections'][roof_label] = []
+            area_analysis[area_label]['realCoords'] = self.to_xy_coords(
+                area_polygon),
+            area_analysis[area_label]['PDFCoords'] = self.to_xy_coords(
+                self.scale_linestring(area_polygon, scale_factor))
 
-        # Calculating intersection lengths for each area with walls
+        # Calculating intersections for each area with walls, floors, and roofs
         for area_label, area_polygon in self.areas:
             for wall_label, wall_line in self.walls:
                 if area_polygon.intersects(wall_line):
                     intersection = area_polygon.intersection(wall_line)
-                    area_analysis[area_label]['wall_lengths'][wall_label] += intersection.length
+                    intersection_length = intersection.length
+                    area_analysis[area_label]['wall_lengths'][wall_label] += intersection_length
+                    area_analysis[area_label]['wall_intersections'][wall_label].append({
+                        'realCoords': self.to_xy_coords(intersection),
+                        'PDFCoords': self.to_xy_coords(self.scale_linestring(intersection, scale_factor)),
+                        'length': intersection_length
+                    })
 
             for floor_label, floor_polygon in self.floors:
                 if area_polygon.intersects(floor_polygon):
                     intersection = area_polygon.intersection(floor_polygon)
-                    area_analysis[area_label]['floor_areas'][floor_label] += intersection.area
+                    intersection_area = intersection.area
+                    area_analysis[area_label]['floor_areas'][floor_label] += intersection_area
+                    area_analysis[area_label]['floor_intersections'][floor_label].append({
+                        'realCoords': self.to_xy_coords(intersection),
+                        'PDFCoords': self.to_xy_coords(self.scale_linestring(intersection, scale_factor)),
+                        'area': intersection_area
+                    })
 
             for roof_label, roof_polygon in self.roofs:
                 if area_polygon.intersects(roof_polygon):
                     intersection = area_polygon.intersection(roof_polygon)
-                    area_analysis[area_label]['roof_areas'][roof_label] += intersection.area
+                    intersection_area = intersection.area
+                    area_analysis[area_label]['roof_areas'][roof_label] += intersection_area
+                    area_analysis[area_label]['roof_intersections'][roof_label].append({
+                        'realCoords': self.to_xy_coords(intersection),
+                        'PDFCoords': self.to_xy_coords(self.scale_linestring(intersection, scale_factor)),
+                        'area': intersection_area
+                    })
 
-        return area_analysis
-
-
-class AreaAnalysisReport:
-    def __init__(self, area_analysis, example_data):
         self.area_analysis = area_analysis
-        self.example_data = example_data
-
-    def generate_report(self):
-        # Initialize a list to hold our DataFrame rows
-        rows_list = []
-
-        # Fetch the criteria details from example_data's weight_criteria
-        weight_criteria = self.example_data['page_metadata']['weight_criteria']
-
-        # Iterate over each region in the area analysis
-        for region, analysis in self.area_analysis.items():
-            # Process wall lengths
-            for wall_label, length in analysis['wall_lengths'].items():
-                wall_criteria = weight_criteria['Walls'][wall_label]
-                rows_list.append({
-                    'Region': region,
-                    'Element Type': 'Wall',
-                    'Element Label': wall_label,
-                    'Height (ft)': wall_criteria['Height'],
-                    'Weight (psf)': wall_criteria['Weight'],
-                    # Snow weight is not applicable for walls
-                    'Snow Weight (psf)': 0,
-                    'Length (ft)': length,
-                    'Area (sf)': 0,
-                    'Total Weight (lbs)': length * wall_criteria['Height'] * wall_criteria['Weight']
-                })
-
-            # Process floor areas
-            for floor_label, area in analysis['floor_areas'].items():
-                floor_criteria = weight_criteria['Floors'][floor_label]
-                rows_list.append({
-                    'Region': region,
-                    'Element Type': 'Floor',
-                    'Element Label': floor_label,
-                    'Height (ft)': 0,  # Height is not applicable for floors
-                    'Weight (psf)': floor_criteria['Weight'],
-                    # Snow weight is not applicable for floors
-                    'Snow Weight (psf)': 0,
-                    'Length (ft)': 0,
-                    'Area (sf)': area,
-                    'Total Weight (lbs)': area * floor_criteria['Weight']
-                })
-
-            # Process roof areas
-            for roof_label, area in analysis['roof_areas'].items():
-                roof_criteria = weight_criteria['Roofs'][roof_label]
-                rows_list.append({
-                    'Region': region,
-                    'Element Type': 'Roof',
-                    'Element Label': roof_label,
-                    'Height (ft)': 0,  # Height is not applicable for roofs
-                    'Weight (psf)': roof_criteria['Weight'],
-                    'Snow Weight (psf)': roof_criteria['Snow'],
-                    'Length (ft)': 0,
-                    'Area (sf)': area,
-                    'Total Weight (lbs)': area * (roof_criteria['Weight'] + roof_criteria['Snow'])
-                })
-
-        # Create a DataFrame
-        report_df = pd.DataFrame(rows_list)
-
-        # Define a custom sort order for the element types
-        custom_sort_order = {'Roof': 1, 'Floor': 2, 'Wall': 3}
-
-        # Add a sort key column based on custom sort order
-        report_df['Sort Key'] = report_df['Element Type'].map(
-            custom_sort_order)
-
-        # Sort by Region and then by the custom sort key within each Region, and alphabetically within the subgroup
-        report_df = report_df.sort_values(
-            by=['Region', 'Sort Key', 'Element Label'])
-
-        # Drop the 'Sort Key' column as it's no longer needed after sorting
-        report_df.drop('Sort Key', axis=1, inplace=True)
-
-        return report_df
+        return area_analysis

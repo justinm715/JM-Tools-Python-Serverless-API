@@ -1,7 +1,7 @@
 import pytest
 import os
 from api.region_tribs import app as flask_app
-from tools.region_tribs_tools import AnnotationsExtractor, AreaAnalysisReport, AreaElementAnalyzer
+from tools.region_tribs_tools import AnnotationsExtractor, AreaElementAnalyzer
 from flask_testing import TestCase
 
 
@@ -62,9 +62,12 @@ class TestPDFProcessing(TestCase):
             data = {
                 'file': (pdf_file, 'sample.pdf')
             }
-            response = self.client.post('/api/region_tribs/process_pdf', data=data, content_type='multipart/form-data')
+            response = self.client.post(
+                '/api/region_tribs/process_pdf', data=data, content_type='multipart/form-data')
             assert response.status_code == 200
-            # Add additional assertions based on the expected response structure
+            # Print the JSON response
+            json_response = response.json
+            print(json_response)
 
 
 # ========= Tools
@@ -89,6 +92,7 @@ class TestAnnotationsExtractor:
         # print(extractor.extract_real_world_coordinates(0))
         pass
 
+
 class TestAreaElementAnalyzer:
     def test_process_data(self):
         mock_data = {
@@ -102,23 +106,6 @@ class TestAreaElementAnalyzer:
     def test_calculate_intersection_lengths(self):
         # Similar to test_process_data, but also checks intersection lengths
         pass
-
-
-class TestAreaAnalysisReport:
-    def test_generate_report(self):
-        mock_area_analysis = {
-            # Populate with mock area analysis data
-        }
-        mock_example_data = {
-            'page_metadata': {
-                'weight_criteria': {
-                    # Populate with mock weight criteria
-                }
-            }
-        }
-        report = AreaAnalysisReport(mock_area_analysis, mock_example_data)
-        report_df = report.generate_report()
-        # Assertions to check the contents of the report DataFrame
 
 
 # Run the tests if this file is executed
