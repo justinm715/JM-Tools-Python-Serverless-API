@@ -77,10 +77,9 @@ def process_pdf():
                 if page_data:
                     analyzer = AreaElementAnalyzer(page_data)
                     area_analysis = analyzer.calculate_intersection_lengths()
-                    all_pages_data.append({
-                        'page': page_num + 1,
-                        'analysis': area_analysis
-                    })
+                    all_pages_data.append(area_analysis)
+                else:
+                    all_pages_data.append(None)
 
             # Clean up: remove the temporary file
             os.remove(temp_pdf_path)
